@@ -1,0 +1,19 @@
+<strings>
+    <string id="AppName">Sauna</string>
+    <string id="Heat">HEAT</string>
+    <string id="Cold">COLD</string>
+    <string id="Rest">REST</string>
+    <string id="Start">Start</string>
+    <string id="Stop">Stop</string>
+    <string id="Save">Save</string>
+    <string id="Discard">Discard</string>
+    <string id="Round">Round</string>
+    <string id="NextPhase">Next Phase</string>
+    <string id="NextRound">Next Round</string>
+    <string id="Finish">Finish</string>
+    <string id="Summary">Summary</string>
+    <string id="HeatTime">Heat Time (min)</string>
+    <string id="ColdTime">Cold Time (min)</string>
+    <string id="RestTime">Rest Time (min)</string>
+    <string id="Disclaimer">WARNING: Garmin does not recommend wearing the watch in extreme heat. Use at your own risk.</string>
+</strings>
