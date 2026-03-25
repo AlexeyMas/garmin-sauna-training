@@ -17,9 +17,6 @@ class SaunaDelegate extends WatchUi.BehaviorDelegate {
     function onSelect() {
         if (_model.state == STATE_ACTIVE) {
             _model.state = STATE_PAUSED;
-            if (Attention has :vibrate) {
-                Attention.vibrate([new Attention.VibeProfile(100, 300)]);
-            }
         } else if (_model.state == STATE_PAUSED) {
             _model.state = STATE_ACTIVE;
         }
