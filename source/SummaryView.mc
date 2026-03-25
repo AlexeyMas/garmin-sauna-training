@@ -74,11 +74,11 @@ class SummaryView extends WatchUi.View {
             y += 30;
         }
 
-        // Actions at bottom
+        // Saved indicator
         dc.setColor(0x00FF00, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, dc.getHeight() - 60, Graphics.FONT_TINY, "SAVE", Graphics.TEXT_JUSTIFY_CENTER);
-        dc.setColor(0xFF4444, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, dc.getHeight() - 35, Graphics.FONT_TINY, "BACK: Discard", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, dc.getHeight() - 50, Graphics.FONT_TINY, "Activity Saved", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, dc.getHeight() - 25, Graphics.FONT_XTINY, "BACK to exit", Graphics.TEXT_JUSTIFY_CENTER);
     }
 }
 
@@ -90,15 +90,14 @@ class SummaryDelegate extends WatchUi.BehaviorDelegate {
         _model = model;
     }
 
+    // Any button from summary = exit
     function onSelect() {
-        _model.saveActivity();
-        _exitToStart();
+        WatchUi.popView(WatchUi.SLIDE_RIGHT);
         return true;
     }
 
     function onBack() {
-        _model.discardActivity();
-        _exitToStart();
+        WatchUi.popView(WatchUi.SLIDE_RIGHT);
         return true;
     }
 

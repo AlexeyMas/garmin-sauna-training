@@ -15,7 +15,8 @@ enum {
 enum {
     STATE_IDLE = 0,
     STATE_ACTIVE = 1,
-    STATE_SESSION_SUMMARY = 2
+    STATE_PAUSED = 2,
+    STATE_SESSION_SUMMARY = 3
 }
 
 class RoundData {

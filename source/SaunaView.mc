@@ -17,6 +17,11 @@ class SaunaView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
 
+        if (_model.state == STATE_PAUSED) {
+            _drawPausedScreen(dc);
+            return;
+        }
+
         switch (_model.currentPage) {
             case 0:
                 _drawMainPage(dc);
@@ -226,6 +231,34 @@ class SaunaView extends WatchUi.View {
         if (bb >= 60) { return 0x00FF00; }
         if (bb >= 30) { return 0xFFA500; }
         return 0xFF0000;
+    }
+
+    hidden function _drawPausedScreen(dc) {
+        var w = dc.getWidth();
+        var cx = w / 2;
+        var cy = dc.getHeight() / 2;
+
+        // Paused title
+        dc.setColor(0xFFA500, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy - 80, Graphics.FONT_LARGE, "PAUSED", Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Session time
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy - 10, Graphics.FONT_NUMBER_MEDIUM,
+            _model.formatTime(_model.sessionElapsed), Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Rounds info
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy + 70, Graphics.FONT_SMALL,
+            _model.rounds.size() + " rounds completed", Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Hints
+        dc.setColor(0x00FF00, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy + 120, Graphics.FONT_TINY,
+            "START: Resume", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy + 150, Graphics.FONT_TINY,
+            "BACK: Save / Discard", Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     hidden function _drawPageDots(dc) {

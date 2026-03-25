@@ -1,9 +1,10 @@
 using Toybox.WatchUi;
+using Toybox.Attention;
 
-// Controls:
-// START (select) = stop session
-// BACK/LAP = toggle sauna <-> rest
-// UP/DOWN or swipe = switch data pages
+// Standard Garmin activity controls:
+// START = pause / resume
+// BACK/LAP = toggle sauna <-> rest (during active)
+// BACK from pause = Save/Discard/Resume menu
 class SaunaDelegate extends WatchUi.BehaviorDelegate {
     hidden var _model;
 
@@ -12,20 +13,39 @@ class SaunaDelegate extends WatchUi.BehaviorDelegate {
         _model = model;
     }
 
-    // START = stop session
+    // START button = pause / resume
     function onSelect() {
-        var dialog = new WatchUi.Confirmation("End session?");
-        WatchUi.pushView(dialog, new StopConfirmDelegate(_model), WatchUi.SLIDE_UP);
+        if (_model.state == STATE_ACTIVE) {
+            _model.state = STATE_PAUSED;
+            if (Attention has :vibrate) {
+                Attention.vibrate([new Attention.VibeProfile(100, 300)]);
+            }
+        } else if (_model.state == STATE_PAUSED) {
+            _model.state = STATE_ACTIVE;
+        }
+        WatchUi.requestUpdate();
         return true;
     }
 
-    // BACK/LAP = toggle sauna <-> rest
+    // BACK/LAP button
     function onBack() {
         if (_model.state == STATE_ACTIVE) {
+            // During active session: toggle sauna <-> rest
             _model.toggleLap();
             WatchUi.requestUpdate();
             return true;
         }
+
+        if (_model.state == STATE_PAUSED) {
+            // From pause: show Save/Discard/Resume menu
+            var menu = new WatchUi.Menu2({:title => "Session"});
+            menu.addItem(new WatchUi.MenuItem("Save", null, :save, {}));
+            menu.addItem(new WatchUi.MenuItem("Discard", null, :discard, {}));
+            menu.addItem(new WatchUi.MenuItem("Resume", null, :resume, {}));
+            WatchUi.pushView(menu, new SessionMenuDelegate(_model), WatchUi.SLIDE_UP);
+            return true;
+        }
+
         return false;
     }
 
@@ -44,20 +64,37 @@ class SaunaDelegate extends WatchUi.BehaviorDelegate {
     }
 }
 
-class StopConfirmDelegate extends WatchUi.ConfirmationDelegate {
+// Menu handler for Save/Discard/Resume
+class SessionMenuDelegate extends WatchUi.Menu2InputDelegate {
     hidden var _model;
 
     function initialize(model) {
-        ConfirmationDelegate.initialize();
+        Menu2InputDelegate.initialize();
         _model = model;
     }
 
-    function onResponse(response) {
-        if (response == WatchUi.CONFIRM_YES) {
+    function onSelect(item) {
+        var id = item.getId();
+        if (id == :save) {
             _model.finishSession();
+            _model.saveActivity();
             var view = new SummaryView(_model);
             WatchUi.switchToView(view, new SummaryDelegate(_model), WatchUi.SLIDE_UP);
+        } else if (id == :discard) {
+            _model.finishSession();
+            _model.discardActivity();
+            // Go back to start
+            var model = new SessionModel();
+            WatchUi.switchToView(new StartView(model), new StartDelegate(model), WatchUi.SLIDE_RIGHT);
+        } else if (id == :resume) {
+            _model.state = STATE_ACTIVE;
+            WatchUi.popView(WatchUi.SLIDE_DOWN);
         }
-        return true;
+    }
+
+    function onBack() {
+        // Back from menu = resume
+        _model.state = STATE_ACTIVE;
+        WatchUi.popView(WatchUi.SLIDE_DOWN);
     }
 }
