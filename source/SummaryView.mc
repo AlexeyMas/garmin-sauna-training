@@ -13,14 +13,14 @@ class SummaryView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
 
-        var cx = dc.getWidth() / 2;
+        var w = dc.getWidth();
+        var cx = w / 2;
 
         // Title
         dc.setColor(0xFFD700, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, 10, Graphics.FONT_MEDIUM, "SESSION", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, 20, Graphics.FONT_MEDIUM, "SESSION", Graphics.TEXT_JUSTIFY_CENTER);
 
-        var y = 50;
-        var lineH = 24;
+        var y = 75;
 
         // Duration and rounds
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
@@ -28,25 +28,25 @@ class SummaryView extends WatchUi.View {
             _model.formatTime(_model.getTotalDuration()) + "  |  " +
             _model.rounds.size() + " rounds",
             Graphics.TEXT_JUSTIFY_CENTER);
-        y += lineH + 5;
+        y += 45;
 
         // HR: min / avg / max
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, y, Graphics.FONT_TINY, "HR min / avg / max", Graphics.TEXT_JUSTIFY_CENTER);
-        y += 18;
+        y += 30;
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         var hrMinDisplay = _model.sessionHrMin;
         if (hrMinDisplay == 999) { hrMinDisplay = 0; }
         dc.drawText(cx, y, Graphics.FONT_SMALL,
             hrMinDisplay + " / " + _model.getSessionHrAvg() + " / " + _model.sessionHrMax,
             Graphics.TEXT_JUSTIFY_CENTER);
-        y += lineH;
+        y += 40;
 
         // Calories
         dc.setColor(0xFFD700, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, y, Graphics.FONT_SMALL,
             "Calories: " + _model.totalCalories.toNumber(), Graphics.TEXT_JUSTIFY_CENTER);
-        y += lineH;
+        y += 40;
 
         // HR Recovery avg
         var avgRec = _model.getAvgHrRecovery();
@@ -54,7 +54,7 @@ class SummaryView extends WatchUi.View {
         dc.drawText(cx, y, Graphics.FONT_SMALL,
             "HR Recovery: " + (avgRec > 0 ? avgRec.toString() : "--"),
             Graphics.TEXT_JUSTIFY_CENTER);
-        y += lineH;
+        y += 40;
 
         // Body Battery
         if (_model.bodyBatteryBefore > 0) {
@@ -62,7 +62,7 @@ class SummaryView extends WatchUi.View {
             dc.drawText(cx, y, Graphics.FONT_TINY,
                 "BB: " + _model.bodyBatteryBefore + " -> " + _model.bodyBatteryAfter,
                 Graphics.TEXT_JUSTIFY_CENTER);
-            y += 20;
+            y += 30;
         }
 
         // Stress
@@ -71,15 +71,14 @@ class SummaryView extends WatchUi.View {
             dc.drawText(cx, y, Graphics.FONT_TINY,
                 "Stress: " + _model.stressBefore + " -> " + _model.stressAfter,
                 Graphics.TEXT_JUSTIFY_CENTER);
-            y += 20;
+            y += 30;
         }
 
-        // Actions
-        y = dc.getHeight() - 45;
+        // Actions at bottom
         dc.setColor(0x00FF00, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y, Graphics.FONT_TINY, "SAVE", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, dc.getHeight() - 60, Graphics.FONT_TINY, "SAVE", Graphics.TEXT_JUSTIFY_CENTER);
         dc.setColor(0xFF4444, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y + 20, Graphics.FONT_TINY, "BACK: Discard", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, dc.getHeight() - 35, Graphics.FONT_TINY, "BACK: Discard", Graphics.TEXT_JUSTIFY_CENTER);
     }
 }
 
@@ -91,14 +90,12 @@ class SummaryDelegate extends WatchUi.BehaviorDelegate {
         _model = model;
     }
 
-    // START/SELECT = save
     function onSelect() {
         _model.saveActivity();
         _exitToStart();
         return true;
     }
 
-    // BACK = discard
     function onBack() {
         _model.discardActivity();
         _exitToStart();

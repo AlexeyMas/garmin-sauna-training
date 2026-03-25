@@ -17,12 +17,13 @@ class StartView extends WatchUi.View {
         dc.clear();
 
         var w = dc.getWidth();
+        var h = dc.getHeight();
         var cx = w / 2;
-        var cy = dc.getHeight() / 2;
+        var cy = h / 2;
 
         // App title
         dc.setColor(0xFF4500, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy - 60, Graphics.FONT_LARGE, "SAUNA", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, cy - 80, Graphics.FONT_LARGE, "SAUNA", Graphics.TEXT_JUSTIFY_CENTER);
 
         // Subtitle
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
@@ -31,17 +32,16 @@ class StartView extends WatchUi.View {
 
         // Disclaimer
         dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy + 25, Graphics.FONT_XTINY,
+        dc.drawText(cx, cy + 30, Graphics.FONT_XTINY,
             "Use at your own risk", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Start hint — standard Garmin: START button
+        // Start hint
         dc.setColor(0x00FF00, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy + 60, Graphics.FONT_MEDIUM,
+        dc.drawText(cx, cy + 80, Graphics.FONT_MEDIUM,
             "START", Graphics.TEXT_JUSTIFY_CENTER);
     }
 }
 
-// START button starts the session — standard Garmin behavior
 class StartDelegate extends WatchUi.BehaviorDelegate {
     hidden var _model;
 
