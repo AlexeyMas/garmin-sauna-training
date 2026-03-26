@@ -49,8 +49,10 @@ class HrCalculator {
         } else {
             calsPerMin = (-20.4022 + 0.4472 * hrF + 0.1263 * 65.0 + 0.0740 * 30.0) / 4.184;
         }
-        if (calsPerMin < 0.0) {
-            calsPerMin = 0.0;
+        // At low HR, use BMR-based minimum (~1.2 cal/min for male, ~1.0 for female)
+        var minCalsPerMin = isMale ? 1.2 : 1.0;
+        if (calsPerMin < minCalsPerMin) {
+            calsPerMin = minCalsPerMin;
         }
         return calsPerMin / 60.0;
     }

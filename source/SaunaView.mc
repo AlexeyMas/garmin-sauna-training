@@ -17,11 +17,6 @@ class SaunaView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
 
-        if (_model.state == STATE_PAUSED) {
-            _drawPausedScreen(dc);
-            return;
-        }
-
         switch (_model.currentPage) {
             case 0:
                 _drawMainPage(dc);
@@ -32,9 +27,16 @@ class SaunaView extends WatchUi.View {
             case 2:
                 _drawBodyPage(dc);
                 break;
+            case 3:
+                _drawRoundsPage(dc);
+                break;
+            case 4:
+                _drawTrendsPage(dc);
+                break;
         }
 
         _drawPageDots(dc);
+
     }
 
     // ===== PAGE 0: MAIN =====
@@ -58,7 +60,7 @@ class SaunaView extends WatchUi.View {
 
         // Phase timer large - centered
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy - h * 25 / 100, Graphics.FONT_NUMBER_HOT,
+        dc.drawText(cx, cy - h * 23 / 100, Graphics.FONT_NUMBER_MEDIUM,
             _model.formatTime(_model.phaseElapsed), Graphics.TEXT_JUSTIFY_CENTER);
 
         // HR big - center of screen
@@ -66,33 +68,77 @@ class SaunaView extends WatchUi.View {
         var hrColor = _model.hrCalc.getZoneColor(hrZone);
         dc.setColor(hrColor, Graphics.COLOR_TRANSPARENT);
         var hrText = _model.currentHR > 0 ? _model.currentHR.toString() : "--";
-        dc.drawText(cx, cy + h * 2 / 100, Graphics.FONT_NUMBER_MEDIUM, hrText, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, cy - h * 1 / 100, Graphics.FONT_NUMBER_MILD, hrText, Graphics.TEXT_JUSTIFY_CENTER);
 
-        // bpm + zone
+        // bpm + zone + delta from resting
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         var zoneText = "bpm";
         if (hrZone > 0) {
             zoneText = "bpm  Z" + hrZone;
         }
-        dc.drawText(cx, cy + h * 18 / 100, Graphics.FONT_SMALL, zoneText, Graphics.TEXT_JUSTIFY_CENTER);
+        if (_model.currentHR > 0 && _model.restingHR > 0) {
+            var delta = _model.currentHR - _model.restingHR;
+            if (delta > 0) {
+                zoneText += "  +" + delta;
+            }
+        }
+        dc.drawText(cx, cy + h * 14 / 100, Graphics.FONT_XTINY, zoneText, Graphics.TEXT_JUSTIFY_CENTER);
 
         // Calories and total time
         dc.setColor(0xFFD700, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx - w * 12 / 100, cy + h * 28 / 100, Graphics.FONT_SMALL,
+        dc.drawText(cx - w * 15 / 100, cy + h * 24 / 100, Graphics.FONT_XTINY,
             _model.totalCalories.toNumber().toString() + " cal", Graphics.TEXT_JUSTIFY_CENTER);
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx + w * 15 / 100, cy + h * 28 / 100, Graphics.FONT_SMALL,
+        dc.drawText(cx + w * 15 / 100, cy + h * 24 / 100, Graphics.FONT_XTINY,
             _model.formatTime(_model.sessionElapsed), Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Hint
-        dc.setColor(0x444444, Graphics.COLOR_TRANSPARENT);
-        if (_model.phase == PHASE_SAUNA) {
-            dc.drawText(cx, cy + h * 38 / 100, Graphics.FONT_XTINY, "LAP: End Set", Graphics.TEXT_JUSTIFY_CENTER);
-        } else if (_model.currentRound == 0) {
-            dc.drawText(cx, cy + h * 38 / 100, Graphics.FONT_XTINY, "LAP: Start Sauna", Graphics.TEXT_JUSTIFY_CENTER);
+        // Recovery indicator during REST, or hint
+        var hintY = cy + h * 30 / 100;
+        if (_model.phase == PHASE_REST && _model.currentRound > 0) {
+            var hrDrop = _model.getHrDrop();
+            var recoveryPct = _model.getRecoveryPercent();
+            var isReady = recoveryPct >= 100;
+            var arcColor = isReady ? 0x00FF00 : 0xFFA500;
+
+            // Recovery arc along bottom of screen (inside bezel)
+            // 320°=lower-right, 220°=lower-left, 100° span through bottom
+            var arcR = cx - 18;
+            dc.setPenWidth(10);
+
+            // Background arc
+            dc.setColor(0x444444, Graphics.COLOR_TRANSPARENT);
+            dc.drawArc(cx, cy, arcR, Graphics.ARC_CLOCKWISE, 320, 220);
+
+            // Fill arc proportional to recovery
+            if (recoveryPct > 0) {
+                var pct = recoveryPct > 100 ? 100 : recoveryPct;
+                // Fill from 320° clockwise toward 220° (through 270°/bottom)
+                var sweepDeg = pct * 100 / 100;
+                var endAngle = 320 - sweepDeg;
+                if (endAngle < 0) { endAngle += 360; }
+                dc.setColor(arcColor, Graphics.COLOR_TRANSPARENT);
+                dc.drawArc(cx, cy, arcR, Graphics.ARC_CLOCKWISE, 320, endAngle);
+            }
+            dc.setPenWidth(1);
+
+            // Recovery text - show "Recovering..." even without HR
+            dc.setColor(arcColor, Graphics.COLOR_TRANSPARENT);
+            var dropText;
+            if (isReady) {
+                dropText = "READY";
+            } else if (hrDrop > 0) {
+                dropText = "-" + hrDrop + " bpm";
+            } else {
+                dropText = "Recovering...";
+            }
+            dc.drawText(cx, hintY, Graphics.FONT_XTINY, dropText, Graphics.TEXT_JUSTIFY_CENTER);
+        } else if (_model.phase == PHASE_SAUNA) {
+            dc.setColor(0x444444, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, hintY, Graphics.FONT_XTINY, "LAP: End Set", Graphics.TEXT_JUSTIFY_CENTER);
         } else {
-            dc.drawText(cx, cy + h * 38 / 100, Graphics.FONT_XTINY, "LAP: Next Set", Graphics.TEXT_JUSTIFY_CENTER);
+            dc.setColor(0x444444, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, hintY, Graphics.FONT_XTINY, "LAP: Start Sauna", Graphics.TEXT_JUSTIFY_CENTER);
         }
     }
 
@@ -102,68 +148,55 @@ class SaunaView extends WatchUi.View {
         var h = dc.getHeight();
         var cx = w / 2;
         var cy = h / 2;
+        var inset = w * 18 / 100;
+        var leftX = inset;
+        var rightX = w - inset;
 
+        // Title
         dc.setColor(0xFF4500, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, cy - h * 42 / 100, Graphics.FONT_SMALL, "HEART RATE", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Current HR
+        // Current HR - large centered
         var hrZone = _model.getCurrentHRZone();
         var hrColor = _model.hrCalc.getZoneColor(hrZone);
         dc.setColor(hrColor, Graphics.COLOR_TRANSPARENT);
         var hrText = _model.currentHR > 0 ? _model.currentHR.toString() : "--";
-        dc.drawText(cx, cy - h * 32 / 100, Graphics.FONT_NUMBER_MEDIUM, hrText, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, cy - h * 32 / 100, Graphics.FONT_NUMBER_MILD, hrText, Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Session stats
-        var y = cy - h * 12 / 100;
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y, Graphics.FONT_XTINY, "SESSION min/avg/max", Graphics.TEXT_JUSTIFY_CENTER);
+        // Zone
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        var zoneText = "bpm";
+        if (hrZone > 0) { zoneText = "bpm  Z" + hrZone; }
+        dc.drawText(cx, cy - h * 10 / 100, Graphics.FONT_XTINY, zoneText, Graphics.TEXT_JUSTIFY_CENTER);
 
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        // Session stats as rows
+        var startY = cy - h * 1 / 100;
+        var rowH = h * 11 / 100;
+
         var hrMinD = _model.sessionHrMin == 999 ? 0 : _model.sessionHrMin;
-        dc.drawText(cx, y + h * 5 / 100, Graphics.FONT_MEDIUM,
-            hrMinD + "/" + _model.getSessionHrAvg() + "/" + _model.sessionHrMax,
-            Graphics.TEXT_JUSTIFY_CENTER);
+        _drawRow(dc, leftX, rightX, startY, "Sess Min", hrMinD.toString(), Graphics.COLOR_LT_GRAY);
+        _drawRow(dc, leftX, rightX, startY + rowH, "Sess Avg", _model.getSessionHrAvg().toString(), Graphics.COLOR_WHITE);
+        _drawRow(dc, leftX, rightX, startY + rowH * 2, "Sess Max", _model.sessionHrMax.toString(), 0xFF4500);
 
-        // Round stats
-        y = cy + h * 5 / 100;
+        // Round HR max (if in sauna round)
         if (_model.currentRound > 0 && _model.phase == PHASE_SAUNA) {
-            dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, y, Graphics.FONT_XTINY, "ROUND " + _model.currentRound, Graphics.TEXT_JUSTIFY_CENTER);
-
             var rd = _model.currentRoundData;
-            var rdMin = rd.hrMin == 999 ? 0 : rd.hrMin;
-            dc.setColor(0xFF8C00, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, y + h * 5 / 100, Graphics.FONT_MEDIUM,
-                rdMin + "/" + rd.getHrAvg() + "/" + rd.hrMax,
-                Graphics.TEXT_JUSTIFY_CENTER);
-            y += h * 17 / 100;
-        } else {
-            y += h * 5 / 100;
-        }
-
-        // HR Recovery
-        if (_model.rounds.size() > 0) {
+            _drawRow(dc, leftX, rightX, startY + rowH * 3, "R" + _model.currentRound + " Max", rd.hrMax.toString(), 0xFF8C00);
+        } else if (_model.rounds.size() > 0) {
+            // HR Recovery from last round
             var lastRound = _model.rounds[_model.rounds.size() - 1];
             var recovery = lastRound.getHrRecoveryScore();
-            dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, y, Graphics.FONT_XTINY, "HR RECOVERY", Graphics.TEXT_JUSTIFY_CENTER);
-
             var recColor;
             if (recovery >= 30) { recColor = 0x00FF00; }
             else if (recovery >= 15) { recColor = 0xFFA500; }
             else { recColor = 0xFF0000; }
-            dc.setColor(recColor, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, y + h * 5 / 100, Graphics.FONT_MEDIUM,
-                (recovery > 0 ? recovery.toString() : "--") + " bpm",
-                Graphics.TEXT_JUSTIFY_CENTER);
-            y += h * 15 / 100;
+            _drawRow(dc, leftX, rightX, startY + rowH * 3, "Recovery",
+                (recovery > 0 ? recovery.toString() : "--") + " bpm", recColor);
         }
 
         // Respiration
         if (_model.currentRespRate > 0) {
-            dc.setColor(0x87CEEB, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, y, Graphics.FONT_SMALL,
-                "Resp " + _model.currentRespRate, Graphics.TEXT_JUSTIFY_CENTER);
+            _drawRow(dc, leftX, rightX, startY + rowH * 4, "Resp", _model.currentRespRate.toString(), 0x87CEEB);
         }
     }
 
@@ -203,17 +236,151 @@ class SaunaView extends WatchUi.View {
             _model.currentBodyBattery > 0 ? _model.currentBodyBattery.toString() : "--",
             _getBBColor(_model.currentBodyBattery));
 
-        // Pressure
-        var pressureText = "--";
-        if (_model.currentPressure > 0) {
-            pressureText = (_model.currentPressure / 100).format("%.0f");
-        }
-        _drawRow(dc, leftX, rightX, startY + rowH * 4, "Press",
-            pressureText, Graphics.COLOR_LT_GRAY);
+        // Resting HR
+        _drawRow(dc, leftX, rightX, startY + rowH * 4, "Rest HR",
+            _model.restingHR > 0 ? _model.restingHR.toString() : "--", 0x87CEEB);
 
         // Calories
         _drawRow(dc, leftX, rightX, startY + rowH * 5, "Cal",
             _model.totalCalories.toNumber().toString(), 0xFFD700);
+    }
+
+    // ===== PAGE 3: ROUNDS =====
+    hidden function _drawRoundsPage(dc) {
+        var w = dc.getWidth();
+        var h = dc.getHeight();
+        var cx = w / 2;
+        var cy = h / 2;
+        var inset = w * 18 / 100;
+        var leftX = inset;
+        var rightX = w - inset;
+
+        // Title
+        dc.setColor(0xFFD700, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy - h * 42 / 100, Graphics.FONT_SMALL, "ROUNDS", Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Current phase
+        var phaseColor = _model.getPhaseColor();
+        dc.setColor(phaseColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy - h * 32 / 100, Graphics.FONT_MEDIUM,
+            _model.getPhaseName() + "  " + _model.formatTime(_model.phaseElapsed),
+            Graphics.TEXT_JUSTIFY_CENTER);
+
+        var startY = cy - h * 18 / 100;
+        var rowH = h * 11 / 100;
+
+        // Total time
+        _drawRow(dc, leftX, rightX, startY, "Total",
+            _model.formatTime(_model.sessionElapsed), Graphics.COLOR_WHITE);
+
+        // Completed rounds
+        _drawRow(dc, leftX, rightX, startY + rowH, "Rounds",
+            _model.rounds.size().toString(), 0xFFD700);
+
+        // Current round
+        if (_model.currentRound > 0) {
+            _drawRow(dc, leftX, rightX, startY + rowH * 2, "Current",
+                "R" + _model.currentRound, 0xFF8C00);
+        }
+
+        // Per-round sauna durations (last 2, centered)
+        if (_model.rounds.size() > 0) {
+            var maxShow = 2;
+            var rStart = 0;
+            if (_model.rounds.size() > maxShow) {
+                rStart = _model.rounds.size() - maxShow;
+            }
+            var y = startY + rowH * 3 + h * 3 / 100;
+            for (var i = rStart; i < _model.rounds.size(); i++) {
+                var rd = _model.rounds[i];
+                dc.setColor(0xFF4500, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, y, Graphics.FONT_XTINY,
+                    "R" + (i + 1) + "  " + _model.formatTime(rd.saunaDuration) + " / " + _model.formatTime(rd.restDuration),
+                    Graphics.TEXT_JUSTIFY_CENTER);
+                y += h * 7 / 100;
+            }
+        }
+    }
+
+    // ===== PAGE 4: TRENDS =====
+    hidden function _drawTrendsPage(dc) {
+        var w = dc.getWidth();
+        var h = dc.getHeight();
+        var cx = w / 2;
+        var cy = h / 2;
+
+        dc.setColor(0xFFA500, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy - h * 42 / 100, Graphics.FONT_SMALL, "TRENDS", Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Current temp large
+        dc.setColor(0xFFA500, Graphics.COLOR_TRANSPARENT);
+        var tempText = _model.currentTemp != 0 ? _model.currentTemp.format("%.1f") + "°C" : "--";
+        dc.drawText(cx, cy - h * 33 / 100, Graphics.FONT_MEDIUM, tempText, Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Temp graph
+        var history = _model.tempHistory;
+        if (history.size() >= 2) {
+            // Graph area - well inside round edges
+            var gLeft = w * 22 / 100;
+            var gRight = w - w * 22 / 100;
+            var gTop = cy - h * 12 / 100;
+            var gBottom = cy + h * 12 / 100;
+            var gW = gRight - gLeft;
+            var gH = gBottom - gTop;
+
+            // Find min/max
+            var tMin = history[0];
+            var tMax = history[0];
+            for (var i = 1; i < history.size(); i++) {
+                if (history[i] < tMin) { tMin = history[i]; }
+                if (history[i] > tMax) { tMax = history[i]; }
+            }
+            var tRange = tMax - tMin;
+            if (tRange < 1.0) { tRange = 1.0; }
+
+            // Draw grid lines
+            dc.setColor(0x333333, Graphics.COLOR_TRANSPARENT);
+            dc.drawLine(gLeft, gTop, gRight, gTop);
+            dc.drawLine(gLeft, gBottom, gRight, gBottom);
+
+            // Min/max labels centered above/below graph
+            dc.setColor(0x666666, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(gRight + 4, gTop - 2, Graphics.FONT_XTINY,
+                tMax.format("%.0f"), Graphics.TEXT_JUSTIFY_LEFT);
+            dc.drawText(gRight + 4, gBottom - 12, Graphics.FONT_XTINY,
+                tMin.format("%.0f"), Graphics.TEXT_JUSTIFY_LEFT);
+
+            // Draw line graph
+            dc.setColor(0xFFA500, Graphics.COLOR_TRANSPARENT);
+            var step = gW.toFloat() / (history.size() - 1);
+            for (var i = 1; i < history.size(); i++) {
+                var x1 = gLeft + ((i - 1) * step).toNumber();
+                var y1 = gBottom - ((history[i - 1] - tMin) / tRange * gH).toNumber();
+                var x2 = gLeft + (i * step).toNumber();
+                var y2 = gBottom - ((history[i] - tMin) / tRange * gH).toNumber();
+                dc.drawLine(x1, y1, x2, y2);
+                dc.drawLine(x1, y1 + 1, x2, y2 + 1);
+            }
+        } else {
+            dc.setColor(0x666666, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, cy, Graphics.FONT_XTINY,
+                "Temp graph after 1 min", Graphics.TEXT_JUSTIFY_CENTER);
+        }
+
+        // HR vs resting - centered below graph
+        var bottomY = cy + h * 18 / 100;
+        dc.setColor(0x888888, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, bottomY, Graphics.FONT_XTINY, "HR vs Resting", Graphics.TEXT_JUSTIFY_CENTER);
+        bottomY += h * 5 / 100;
+        if (_model.currentHR > 0 && _model.restingHR > 0) {
+            var delta = _model.currentHR - _model.restingHR;
+            dc.setColor(delta > 20 ? 0xFF4500 : 0x00BFFF, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, bottomY, Graphics.FONT_MEDIUM,
+                "+" + delta + " bpm", Graphics.TEXT_JUSTIFY_CENTER);
+        } else {
+            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, bottomY, Graphics.FONT_MEDIUM, "--", Graphics.TEXT_JUSTIFY_CENTER);
+        }
     }
 
     hidden function _drawRow(dc, leftX, rightX, y, label, value, color) {
@@ -238,28 +405,6 @@ class SaunaView extends WatchUi.View {
         return 0xFF0000;
     }
 
-    hidden function _drawPausedScreen(dc) {
-        var w = dc.getWidth();
-        var h = dc.getHeight();
-        var cx = w / 2;
-        var cy = h / 2;
-
-        dc.setColor(0xFFA500, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy - h * 20 / 100, Graphics.FONT_LARGE, "PAUSED", Graphics.TEXT_JUSTIFY_CENTER);
-
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy - h * 2 / 100, Graphics.FONT_NUMBER_MEDIUM,
-            _model.formatTime(_model.sessionElapsed), Graphics.TEXT_JUSTIFY_CENTER);
-
-        var roundsText = _model.rounds.size() + " rounds";
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy + h * 15 / 100, Graphics.FONT_SMALL, roundsText, Graphics.TEXT_JUSTIFY_CENTER);
-
-        dc.setColor(0x00FF00, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy + h * 27 / 100, Graphics.FONT_TINY, "START: Resume", Graphics.TEXT_JUSTIFY_CENTER);
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy + h * 34 / 100, Graphics.FONT_TINY, "BACK: Save/Discard", Graphics.TEXT_JUSTIFY_CENTER);
-    }
 
     hidden function _drawPageDots(dc) {
         var w = dc.getWidth();

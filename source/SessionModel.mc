@@ -6,6 +6,8 @@ using Toybox.Application;
 using Toybox.Timer;
 using Toybox.Attention;
 using Toybox.ActivityRecording;
+using Toybox.UserProfile;
+using Toybox.ActivityMonitor;
 
 enum {
     PHASE_SAUNA = 0,
@@ -68,6 +70,13 @@ class SessionModel {
     var stressAfter = 0;
     var currentStress = 0;
     var currentBodyBattery = 0;
+    var restingHR = 0;
+    var timeToRecovery = 0;
+    var tempHistory = [];       // temperature samples for graph
+    const TEMP_HISTORY_MAX = 30; // max samples (every 30s = 15 min)
+    var hrAtSaunaEnd = 0;       // HR when leaving sauna (for recovery tracking)
+    var restHrMin = 999;        // lowest HR during current rest
+    hidden var _recoveryAlerted = false;
 
     var sessionHrMax = 0;
     var sessionHrMin = 999;
@@ -81,18 +90,42 @@ class SessionModel {
 
     // Data page index (0=main, 1=HR detail, 2=body)
     var currentPage = 0;
-    const PAGE_COUNT = 3;
+    const PAGE_COUNT = 5;
 
     function initialize() {
         var maxHR = Application.Properties.getValue("maxHR");
         if (maxHR == null || maxHR == 0) { maxHR = 190; }
         hrCalc = new HrCalculator(maxHR);
 
+        // Read resting HR from user profile
+        var profile = Toybox.UserProfile.getProfile();
+        if (profile != null) {
+            if (profile has :restingHeartRate && profile.restingHeartRate != null) {
+                restingHR = profile.restingHeartRate;
+            }
+            if (restingHR == 0 && profile has :averageRestingHeartRate && profile.averageRestingHeartRate != null) {
+                restingHR = profile.averageRestingHeartRate;
+            }
+        }
+        // Try ActivityMonitor as last resort
+        if (restingHR == 0) {
+            var hrHistory = SensorHistory.getHeartRateHistory({:period => 1});
+            if (hrHistory != null) {
+                var minHr = hrHistory.getMin();
+                if (minHr != null) { restingHR = minHr.toNumber(); }
+            }
+        }
+
         currentRoundData = new RoundData();
         updateTimer = new Timer.Timer();
     }
 
     function capturePreSessionMetrics() {
+        // Capture recovery time before session starts
+        var amInfo = ActivityMonitor.getInfo();
+        if (amInfo != null && amInfo has :timeToRecovery && amInfo.timeToRecovery != null) {
+            timeToRecovery = amInfo.timeToRecovery;
+        }
         bodyBatteryBefore = _getLatestBodyBattery();
         stressBefore = _getLatestStress();
     }
@@ -190,10 +223,31 @@ class SessionModel {
             currentRespRate = actInfo.respirationRate;
         }
 
-        // Read stress and body battery every 10s (or first tick)
+        // Read stress, body battery, recovery every 10s (or first tick)
         if (sessionElapsed == 1 || sessionElapsed % 10 == 0) {
-            currentStress = _getLatestStress();
+            // Try ActivityMonitor first for stress (works during activity)
+            var amInfo = ActivityMonitor.getInfo();
+            if (amInfo != null) {
+                if (amInfo has :stressScore && amInfo.stressScore != null) {
+                    currentStress = amInfo.stressScore;
+                }
+                if (amInfo has :timeToRecovery && amInfo.timeToRecovery != null) {
+                    timeToRecovery = amInfo.timeToRecovery;
+                }
+            }
+            // Fallback to SensorHistory if still 0
+            if (currentStress == 0) {
+                currentStress = _getLatestStress();
+            }
             currentBodyBattery = _getLatestBodyBattery();
+        }
+
+        // Record temp every 30s for graph
+        if (currentTemp != 0 && sessionElapsed % 30 == 0) {
+            tempHistory.add(currentTemp);
+            if (tempHistory.size() > TEMP_HISTORY_MAX) {
+                tempHistory = tempHistory.slice(tempHistory.size() - TEMP_HISTORY_MAX, null);
+            }
         }
 
         if (currentHR > 0) {
@@ -222,6 +276,22 @@ class SessionModel {
             if (phase == PHASE_REST && !_recoveryRecorded && phaseElapsed >= 60 && currentRound > 0) {
                 currentRoundData.hrRecovery1Min = currentHR;
                 _recoveryRecorded = true;
+            }
+
+            // Track min HR during rest for recovery indicator
+            if (phase == PHASE_REST && currentRound > 0) {
+                if (currentHR < restHrMin) { restHrMin = currentHR; }
+                // Vibrate when recovery target reached
+                if (!_recoveryAlerted && getRecoveryPercent() >= 100) {
+                    _recoveryAlerted = true;
+                    if (Attention has :vibrate) {
+                        Attention.vibrate([
+                            new Attention.VibeProfile(50, 200),
+                            new Attention.VibeProfile(0, 100),
+                            new Attention.VibeProfile(50, 200)
+                        ]);
+                    }
+                }
             }
         }
 
@@ -252,6 +322,9 @@ class SessionModel {
             }
         } else {
             currentRoundData.hrAtSaunaEnd = currentHR;
+            hrAtSaunaEnd = currentHR;
+            restHrMin = 999;
+            _recoveryAlerted = false;
             phase = PHASE_REST;
             phaseElapsed = 0;
             _recoveryRecorded = false;
@@ -294,6 +367,31 @@ class SessionModel {
 
     function getCurrentHRZone() {
         return hrCalc.getHRZone(currentHR);
+    }
+
+    // How much HR dropped from sauna end
+    function getHrDrop() {
+        if (hrAtSaunaEnd == 0 || currentHR <= 0) { return 0; }
+        var drop = hrAtSaunaEnd - currentHR;
+        return drop > 0 ? drop : 0;
+    }
+
+    // Recovery percentage: 100% = HR dropped 30bpm or back to zone 1
+    function getRecoveryPercent() {
+        if (hrAtSaunaEnd == 0 || currentHR <= 0) { return 0; }
+        var drop = hrAtSaunaEnd - currentHR;
+        if (drop <= 0) { return 0; }
+        // Target: drop 30 bpm or reach resting+20
+        var target = 30;
+        if (restingHR > 0) {
+            var targetHR = restingHR + 20;
+            var neededDrop = hrAtSaunaEnd - targetHR;
+            if (neededDrop > 0 && neededDrop < target) {
+                target = neededDrop;
+            }
+        }
+        if (target <= 0) { target = 30; }
+        return (drop * 100) / target;
     }
 
     function getSessionHrAvg() {

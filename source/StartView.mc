@@ -35,6 +35,10 @@ class StartView extends WatchUi.View {
         dc.setColor(0x00FF00, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, cy + 80, Graphics.FONT_MEDIUM,
             "START", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(0x444444, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, h - 30, Graphics.FONT_XTINY,
+            "v1.10", Graphics.TEXT_JUSTIFY_CENTER);
     }
 }
 

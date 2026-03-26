@@ -15,15 +15,23 @@ class SaunaDelegate extends WatchUi.BehaviorDelegate {
         _model = model;
     }
 
-    // START = pause / resume
+    // START/STOP = pause + show menu immediately
     function onSelect() {
         if (_model.state == STATE_ACTIVE) {
             _model.state = STATE_PAUSED;
+            _showSessionMenu();
         } else if (_model.state == STATE_PAUSED) {
-            _model.state = STATE_ACTIVE;
+            _showSessionMenu();
         }
-        WatchUi.requestUpdate();
         return true;
+    }
+
+    hidden function _showSessionMenu() {
+        var menu = new WatchUi.Menu2({:title => "Session"});
+        menu.addItem(new WatchUi.MenuItem("Resume", null, :resume, {}));
+        menu.addItem(new WatchUi.MenuItem("Save", null, :save, {}));
+        menu.addItem(new WatchUi.MenuItem("Discard", null, :discard, {}));
+        WatchUi.pushView(menu, new SessionMenuDelegate(_model), WatchUi.SLIDE_UP);
     }
 
     // BACK/LAP
@@ -36,12 +44,7 @@ class SaunaDelegate extends WatchUi.BehaviorDelegate {
         }
 
         if (_model.state == STATE_PAUSED) {
-            // Show Save/Discard/Resume menu
-            var menu = new WatchUi.Menu2({:title => "Session"});
-            menu.addItem(new WatchUi.MenuItem("Save", null, :save, {}));
-            menu.addItem(new WatchUi.MenuItem("Discard", null, :discard, {}));
-            menu.addItem(new WatchUi.MenuItem("Resume", null, :resume, {}));
-            WatchUi.pushView(menu, new SessionMenuDelegate(_model), WatchUi.SLIDE_UP);
+            _showSessionMenu();
             return true;
         }
 
@@ -75,11 +78,7 @@ class SessionMenuDelegate extends WatchUi.Menu2InputDelegate {
         if (id == :save) {
             _model.finishSession();
             _model.saveActivity();
-            // Pop menu, then pop session view, push summary
-            WatchUi.popView(WatchUi.SLIDE_DOWN); // pop menu
-            // Replace session view with summary
-            var view = new SummaryView(_model);
-            WatchUi.switchToView(view, new SummaryDelegate(_model), WatchUi.SLIDE_UP);
+            System.exit();
         } else if (id == :discard) {
             _model.finishSession();
             _model.discardActivity();
