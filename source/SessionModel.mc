@@ -190,13 +190,14 @@ class SessionModel {
             currentRespRate = actInfo.respirationRate;
         }
 
-        // Periodically read stress and body battery (every 30s)
-        if (sessionElapsed % 30 == 0) {
+        // Read stress and body battery every 10s (or first tick)
+        if (sessionElapsed == 1 || sessionElapsed % 10 == 0) {
             currentStress = _getLatestStress();
             currentBodyBattery = _getLatestBodyBattery();
         }
 
         if (currentHR > 0) {
+            // Track HR for current round during sauna
             if (phase == PHASE_SAUNA) {
                 currentRoundData.hrCount++;
                 currentRoundData.hrSum += currentHR;
@@ -204,17 +205,20 @@ class SessionModel {
                 if (currentHR < currentRoundData.hrMin) { currentRoundData.hrMin = currentHR; }
             }
 
+            // Session HR stats always
             sessionHrCount++;
             sessionHrSum += currentHR;
             if (currentHR > sessionHrMax) { sessionHrMax = currentHR; }
             if (currentHR < sessionHrMin) { sessionHrMin = currentHR; }
 
+            // Calories ALWAYS count when HR is available
+            var cals = hrCalc.caloriesPerSecond(currentHR, true);
+            totalCalories += cals;
             if (phase == PHASE_SAUNA) {
-                var cals = hrCalc.caloriesPerSecond(currentHR, true);
-                totalCalories += cals;
                 currentRoundData.calories += cals;
             }
 
+            // HR recovery tracking
             if (phase == PHASE_REST && !_recoveryRecorded && phaseElapsed >= 60 && currentRound > 0) {
                 currentRoundData.hrRecovery1Min = currentHR;
                 _recoveryRecorded = true;
