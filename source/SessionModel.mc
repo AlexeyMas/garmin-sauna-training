@@ -6,6 +6,7 @@ using Toybox.Application;
 using Toybox.Timer;
 using Toybox.Attention;
 using Toybox.ActivityRecording;
+using Toybox.FitContributor;
 using Toybox.UserProfile;
 using Toybox.ActivityMonitor;
 
@@ -88,6 +89,19 @@ class SessionModel {
     var updateTimer;
     var onUpdate;
 
+    // FIT custom fields
+    var fitPhase;           // RECORD: 0=sauna, 1=rest
+    var fitRecovery;        // RECORD: recovery %
+    var fitLapRound;        // LAP: round number
+    var fitLapHrMax;        // LAP: HR max
+    var fitLapHrAvg;        // LAP: HR avg
+    var fitRounds;          // SESSION: total rounds
+    var fitAvgRecovery;     // SESSION: avg HR recovery
+    var fitBBBefore;        // SESSION: body battery before
+    var fitBBAfter;         // SESSION: body battery after
+    var fitStressBefore;    // SESSION: stress before
+    var fitStressAfter;     // SESSION: stress after
+
     // Data page index (0=main, 1=HR detail, 2=body)
     var currentPage = 0;
     const PAGE_COUNT = 5;
@@ -150,11 +164,16 @@ class SessionModel {
 
     hidden function _getLatestStress() {
         if (SensorHistory has :getStressHistory) {
-            var iter = SensorHistory.getStressHistory({:period => 1});
+            // Wider window — stress may not update every second during activity
+            var iter = SensorHistory.getStressHistory({:period => 5, :order => SensorHistory.ORDER_NEWEST_FIRST});
             if (iter != null) {
+                // Find first valid sample
                 var sample = iter.next();
-                if (sample != null && sample.data != null) {
-                    return sample.data.toNumber();
+                while (sample != null) {
+                    if (sample.data != null && sample.data > 0) {
+                        return sample.data.toNumber();
+                    }
+                    sample = iter.next();
                 }
             }
         }
@@ -186,6 +205,36 @@ class SessionModel {
             :sport => Activity.SPORT_TRAINING,
             :subSport => Activity.SUB_SPORT_CARDIO_TRAINING
         });
+
+        // Create FIT custom fields
+        // RECORD fields (per-second graphs)
+        fitPhase = session.createField("Phase", 0, FitContributor.DATA_TYPE_UINT8,
+            {:mesgType => FitContributor.MESG_TYPE_RECORD, :units => ""});
+        fitRecovery = session.createField("Recovery", 1, FitContributor.DATA_TYPE_UINT8,
+            {:mesgType => FitContributor.MESG_TYPE_RECORD, :units => "%"});
+
+        // LAP fields
+        fitLapRound = session.createField("Round", 10, FitContributor.DATA_TYPE_UINT8,
+            {:mesgType => FitContributor.MESG_TYPE_LAP, :units => ""});
+        fitLapHrMax = session.createField("Lap HR Max", 11, FitContributor.DATA_TYPE_UINT16,
+            {:mesgType => FitContributor.MESG_TYPE_LAP, :units => "bpm"});
+        fitLapHrAvg = session.createField("Lap HR Avg", 12, FitContributor.DATA_TYPE_UINT16,
+            {:mesgType => FitContributor.MESG_TYPE_LAP, :units => "bpm"});
+
+        // SESSION fields
+        fitRounds = session.createField("Sauna Rounds", 20, FitContributor.DATA_TYPE_UINT8,
+            {:mesgType => FitContributor.MESG_TYPE_SESSION, :units => ""});
+        fitAvgRecovery = session.createField("Avg HR Recovery", 21, FitContributor.DATA_TYPE_UINT16,
+            {:mesgType => FitContributor.MESG_TYPE_SESSION, :units => "bpm"});
+        fitBBBefore = session.createField("BB Before", 22, FitContributor.DATA_TYPE_UINT8,
+            {:mesgType => FitContributor.MESG_TYPE_SESSION, :units => ""});
+        fitBBAfter = session.createField("BB After", 23, FitContributor.DATA_TYPE_UINT8,
+            {:mesgType => FitContributor.MESG_TYPE_SESSION, :units => ""});
+        fitStressBefore = session.createField("Stress Before", 24, FitContributor.DATA_TYPE_UINT8,
+            {:mesgType => FitContributor.MESG_TYPE_SESSION, :units => ""});
+        fitStressAfter = session.createField("Stress After", 25, FitContributor.DATA_TYPE_UINT8,
+            {:mesgType => FitContributor.MESG_TYPE_SESSION, :units => ""});
+
         session.start();
 
         updateTimer.start(method(:onTimer), 1000, true);
@@ -301,6 +350,13 @@ class SessionModel {
             currentRoundData.restDuration = phaseElapsed;
         }
 
+        // Write FIT RECORD fields every second
+        if (fitPhase != null) { fitPhase.setData(phase == PHASE_SAUNA ? 1 : 0); }
+        if (fitRecovery != null) {
+            var recPct = getRecoveryPercent();
+            fitRecovery.setData(recPct > 255 ? 255 : recPct);
+        }
+
         if (onUpdate != null) {
             onUpdate.invoke();
         }
@@ -308,9 +364,15 @@ class SessionModel {
 
     function toggleLap() {
         if (phase == PHASE_REST) {
+            // End rest phase → start sauna
+            // Write LAP FIT data before addLap
             if (currentRound > 0) {
+                _writeLapFitData();
                 if (session != null) { session.addLap(); }
                 rounds.add(currentRoundData);
+            } else {
+                // Close the READY/warm-up period as its own lap
+                if (session != null) { session.addLap(); }
             }
             currentRound++;
             currentRoundData = new RoundData();
@@ -321,6 +383,11 @@ class SessionModel {
                 Attention.vibrate([new Attention.VibeProfile(100, 500)]);
             }
         } else {
+            // End sauna phase → start rest
+            // Write LAP FIT data before addLap
+            _writeLapFitData();
+            if (session != null) { session.addLap(); }
+
             currentRoundData.hrAtSaunaEnd = currentHR;
             hrAtSaunaEnd = currentHR;
             restHrMin = 999;
@@ -348,6 +415,9 @@ class SessionModel {
         updateTimer.stop();
         capturePostSessionMetrics();
 
+        // Write SESSION FIT data before stop
+        _writeSessionFitData();
+
         Sensor.enableSensorEvents(null);
 
         if (session != null) { session.stop(); }
@@ -355,6 +425,21 @@ class SessionModel {
         if (Attention has :vibrate) {
             Attention.vibrate([new Attention.VibeProfile(100, 1000)]);
         }
+    }
+
+    hidden function _writeLapFitData() {
+        if (fitLapRound != null) { fitLapRound.setData(currentRound); }
+        if (fitLapHrMax != null) { fitLapHrMax.setData(currentRoundData.hrMax); }
+        if (fitLapHrAvg != null) { fitLapHrAvg.setData(currentRoundData.getHrAvg()); }
+    }
+
+    hidden function _writeSessionFitData() {
+        if (fitRounds != null) { fitRounds.setData(rounds.size()); }
+        if (fitAvgRecovery != null) { fitAvgRecovery.setData(getAvgHrRecovery()); }
+        if (fitBBBefore != null) { fitBBBefore.setData(bodyBatteryBefore); }
+        if (fitBBAfter != null) { fitBBAfter.setData(bodyBatteryAfter); }
+        if (fitStressBefore != null) { fitStressBefore.setData(stressBefore); }
+        if (fitStressAfter != null) { fitStressAfter.setData(stressAfter); }
     }
 
     function saveActivity() {
@@ -376,22 +461,29 @@ class SessionModel {
         return drop > 0 ? drop : 0;
     }
 
-    // Recovery percentage: 100% = HR dropped 30bpm or back to zone 1
+    // Recovery: how close HR is to resting state + minimum time
+    // 0% = HR at sauna end, 100% = HR reached restingHR+10
+    // Minimum 3 min rest required regardless of HR
     function getRecoveryPercent() {
         if (hrAtSaunaEnd == 0 || currentHR <= 0) { return 0; }
-        var drop = hrAtSaunaEnd - currentHR;
-        if (drop <= 0) { return 0; }
-        // Target: drop 30 bpm or reach resting+20
-        var target = 30;
-        if (restingHR > 0) {
-            var targetHR = restingHR + 20;
-            var neededDrop = hrAtSaunaEnd - targetHR;
-            if (neededDrop > 0 && neededDrop < target) {
-                target = neededDrop;
-            }
-        }
-        if (target <= 0) { target = 30; }
-        return (drop * 100) / target;
+        if (phase != PHASE_REST) { return 0; }
+
+        // HR component: how close to resting
+        var targetHR = restingHR > 0 ? restingHR + 10 : 70;
+        var totalRange = hrAtSaunaEnd - targetHR;
+        if (totalRange <= 0) { totalRange = 30; }
+        var currentDrop = hrAtSaunaEnd - currentHR;
+        if (currentDrop < 0) { currentDrop = 0; }
+        var hrPct = (currentDrop * 100) / totalRange;
+        if (hrPct > 100) { hrPct = 100; }
+
+        // Time component: minimum 7 min rest (420s)
+        var minRestTime = 420;
+        var timePct = (phaseElapsed * 100) / minRestTime;
+        if (timePct > 100) { timePct = 100; }
+
+        // Both must be met: take the lower one
+        return hrPct < timePct ? hrPct : timePct;
     }
 
     function getSessionHrAvg() {

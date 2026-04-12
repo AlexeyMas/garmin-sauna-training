@@ -16,4 +16,21 @@
     <string id="ColdTime">Cold Time (min)</string>
     <string id="RestTime">Rest Time (min)</string>
     <string id="Disclaimer">WARNING: Garmin does not recommend wearing the watch in extreme heat. Use at your own risk.</string>
+    <!-- FIT contribution labels -->
+    <string id="fitPhaseChart">Sauna Phase</string>
+    <string id="fitPhaseLabel">Phase</string>
+    <string id="fitRecoveryChart">Recovery %</string>
+    <string id="fitRecoveryLabel">Recovery</string>
+    <string id="fitRecoveryUnit">%</string>
+    <string id="fitRoundLabel">Round #</string>
+    <string id="fitLapHrMaxLabel">Lap HR Max</string>
+    <string id="fitLapHrAvgLabel">Lap HR Avg</string>
+    <string id="fitBpmUnit">bpm</string>
+    <string id="fitRoundsLabel">Sauna Rounds</string>
+    <string id="fitAvgRecoveryLabel">Avg HR Recovery</string>
+    <string id="fitBBBeforeLabel">Body Battery Before</string>
+    <string id="fitBBAfterLabel">Body Battery After</string>
+    <string id="fitStressBeforeLabel">Stress Before</string>
+    <string id="fitStressAfterLabel">Stress After</string>
+    <string id="fitNoUnit"> </string>
 </strings>

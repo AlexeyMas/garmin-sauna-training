@@ -58,17 +58,17 @@ class SaunaView extends WatchUi.View {
         dc.drawText(cx, cy - h * 40 / 100, Graphics.FONT_MEDIUM,
             _model.getPhaseName() + roundText, Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Phase timer large - centered
+        // Phase timer large - raised up
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy - h * 23 / 100, Graphics.FONT_NUMBER_MEDIUM,
+        dc.drawText(cx, cy - h * 27 / 100, Graphics.FONT_NUMBER_MEDIUM,
             _model.formatTime(_model.phaseElapsed), Graphics.TEXT_JUSTIFY_CENTER);
 
-        // HR big - center of screen
+        // HR big - raised up
         var hrZone = _model.getCurrentHRZone();
         var hrColor = _model.hrCalc.getZoneColor(hrZone);
         dc.setColor(hrColor, Graphics.COLOR_TRANSPARENT);
         var hrText = _model.currentHR > 0 ? _model.currentHR.toString() : "--";
-        dc.drawText(cx, cy - h * 1 / 100, Graphics.FONT_NUMBER_MILD, hrText, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, cy - h * 5 / 100, Graphics.FONT_NUMBER_MILD, hrText, Graphics.TEXT_JUSTIFY_CENTER);
 
         // bpm + zone + delta from resting
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
@@ -82,38 +82,47 @@ class SaunaView extends WatchUi.View {
                 zoneText += "  +" + delta;
             }
         }
-        dc.drawText(cx, cy + h * 14 / 100, Graphics.FONT_XTINY, zoneText, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, cy + h * 10 / 100, Graphics.FONT_XTINY, zoneText, Graphics.TEXT_JUSTIFY_CENTER);
 
         // Calories and total time
         dc.setColor(0xFFD700, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx - w * 15 / 100, cy + h * 24 / 100, Graphics.FONT_XTINY,
+        dc.drawText(cx - w * 15 / 100, cy + h * 20 / 100, Graphics.FONT_XTINY,
             _model.totalCalories.toNumber().toString() + " cal", Graphics.TEXT_JUSTIFY_CENTER);
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx + w * 15 / 100, cy + h * 24 / 100, Graphics.FONT_XTINY,
+        dc.drawText(cx + w * 15 / 100, cy + h * 20 / 100, Graphics.FONT_XTINY,
             _model.formatTime(_model.sessionElapsed), Graphics.TEXT_JUSTIFY_CENTER);
 
         // Recovery indicator during REST, or hint
-        var hintY = cy + h * 30 / 100;
+        var hintY = cy + h * 32 / 100;
         if (_model.phase == PHASE_REST && _model.currentRound > 0) {
             var hrDrop = _model.getHrDrop();
             var recoveryPct = _model.getRecoveryPercent();
             var isReady = recoveryPct >= 100;
-            var arcColor = isReady ? 0x00FF00 : 0xFFA500;
+            // Orange → Yellow → Green gradient based on recovery
+            var arcColor;
+            if (isReady) { arcColor = 0x00FF00; }
+            else if (recoveryPct >= 70) { arcColor = 0xAAFF00; }
+            else if (recoveryPct >= 40) { arcColor = 0xFFA500; }
+            else { arcColor = 0xFF6600; }
 
             // Recovery arc along bottom of screen (inside bezel)
             // 320°=lower-right, 220°=lower-left, 100° span through bottom
             var arcR = cx - 18;
             dc.setPenWidth(10);
 
-            // Background arc
-            dc.setColor(0x444444, Graphics.COLOR_TRANSPARENT);
+            // Dim background arc in dark version of recovery color
+            var dimColor;
+            if (isReady) { dimColor = 0x004400; }
+            else if (recoveryPct >= 70) { dimColor = 0x334400; }
+            else if (recoveryPct >= 40) { dimColor = 0x442200; }
+            else { dimColor = 0x441100; }
+            dc.setColor(dimColor, Graphics.COLOR_TRANSPARENT);
             dc.drawArc(cx, cy, arcR, Graphics.ARC_CLOCKWISE, 320, 220);
 
-            // Fill arc proportional to recovery
+            // Bright fill arc proportional to recovery
             if (recoveryPct > 0) {
                 var pct = recoveryPct > 100 ? 100 : recoveryPct;
-                // Fill from 320° clockwise toward 220° (through 270°/bottom)
                 var sweepDeg = pct * 100 / 100;
                 var endAngle = 320 - sweepDeg;
                 if (endAngle < 0) { endAngle += 360; }
@@ -122,15 +131,14 @@ class SaunaView extends WatchUi.View {
             }
             dc.setPenWidth(1);
 
-            // Recovery text - show "Recovering..." even without HR
+            // Recovery text with percentage
             dc.setColor(arcColor, Graphics.COLOR_TRANSPARENT);
             var dropText;
             if (isReady) {
                 dropText = "READY";
-            } else if (hrDrop > 0) {
-                dropText = "-" + hrDrop + " bpm";
             } else {
-                dropText = "Recovering...";
+                var pctDisplay = recoveryPct > 99 ? 99 : recoveryPct;
+                dropText = "Recovery " + pctDisplay + "%";
             }
             dc.drawText(cx, hintY, Graphics.FONT_XTINY, dropText, Graphics.TEXT_JUSTIFY_CENTER);
         } else if (_model.phase == PHASE_SAUNA) {
@@ -154,24 +162,24 @@ class SaunaView extends WatchUi.View {
 
         // Title
         dc.setColor(0xFF4500, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy - h * 42 / 100, Graphics.FONT_SMALL, "HEART RATE", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, cy - h * 42 / 100, Graphics.FONT_XTINY, "HEART RATE", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Current HR - large centered
+        // Current HR
         var hrZone = _model.getCurrentHRZone();
         var hrColor = _model.hrCalc.getZoneColor(hrZone);
         dc.setColor(hrColor, Graphics.COLOR_TRANSPARENT);
         var hrText = _model.currentHR > 0 ? _model.currentHR.toString() : "--";
-        dc.drawText(cx, cy - h * 32 / 100, Graphics.FONT_NUMBER_MILD, hrText, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, cy - h * 35 / 100, Graphics.FONT_NUMBER_MILD, hrText, Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Zone
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        var zoneText = "bpm";
-        if (hrZone > 0) { zoneText = "bpm  Z" + hrZone; }
-        dc.drawText(cx, cy - h * 10 / 100, Graphics.FONT_XTINY, zoneText, Graphics.TEXT_JUSTIFY_CENTER);
+        // Zone (only if in a zone)
+        if (hrZone > 0) {
+            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, cy - h * 14 / 100, Graphics.FONT_XTINY, "Z" + hrZone, Graphics.TEXT_JUSTIFY_CENTER);
+        }
 
-        // Session stats as rows
-        var startY = cy - h * 1 / 100;
-        var rowH = h * 11 / 100;
+        // Session stats as rows - evenly spaced
+        var startY = cy - h * 14 / 100;
+        var rowH = h * 13 / 100;
 
         var hrMinD = _model.sessionHrMin == 999 ? 0 : _model.sessionHrMin;
         _drawRow(dc, leftX, rightX, startY, "Sess Min", hrMinD.toString(), Graphics.COLOR_LT_GRAY);
@@ -191,7 +199,7 @@ class SaunaView extends WatchUi.View {
             else if (recovery >= 15) { recColor = 0xFFA500; }
             else { recColor = 0xFF0000; }
             _drawRow(dc, leftX, rightX, startY + rowH * 3, "Recovery",
-                (recovery > 0 ? recovery.toString() : "--") + " bpm", recColor);
+                recovery > 0 ? recovery.toString() : "--", recColor);
         }
 
         // Respiration
@@ -207,15 +215,16 @@ class SaunaView extends WatchUi.View {
         var cx = w / 2;
         var cy = h / 2;
 
-        dc.setColor(0x00BFFF, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy - h * 42 / 100, Graphics.FONT_SMALL, "BODY", Graphics.TEXT_JUSTIFY_CENTER);
+        // Current time large
+        var clockInfo = System.getClockTime();
+        var timeStr = clockInfo.hour.format("%02d") + ":" + clockInfo.min.format("%02d");
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy - h * 42 / 100, Graphics.FONT_NUMBER_MILD, timeStr, Graphics.TEXT_JUSTIFY_CENTER);
 
-        // 6 rows centered, each row: label left-aligned, value right-aligned
-        // Use inset from edges for round display
-        var inset = w * 18 / 100; // stay inside round edges
+        var inset = w * 18 / 100;
         var leftX = inset;
         var rightX = w - inset;
-        var startY = cy - h * 30 / 100;
+        var startY = cy - h * 18 / 100;
         var rowH = h * 11 / 100;
 
         // SpO2
@@ -239,10 +248,6 @@ class SaunaView extends WatchUi.View {
         // Resting HR
         _drawRow(dc, leftX, rightX, startY + rowH * 4, "Rest HR",
             _model.restingHR > 0 ? _model.restingHR.toString() : "--", 0x87CEEB);
-
-        // Calories
-        _drawRow(dc, leftX, rightX, startY + rowH * 5, "Cal",
-            _model.totalCalories.toNumber().toString(), 0xFFD700);
     }
 
     // ===== PAGE 3: ROUNDS =====
@@ -259,45 +264,41 @@ class SaunaView extends WatchUi.View {
         dc.setColor(0xFFD700, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, cy - h * 42 / 100, Graphics.FONT_SMALL, "ROUNDS", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Current phase
+        // Current phase + time
         var phaseColor = _model.getPhaseColor();
         dc.setColor(phaseColor, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, cy - h * 32 / 100, Graphics.FONT_MEDIUM,
             _model.getPhaseName() + "  " + _model.formatTime(_model.phaseElapsed),
             Graphics.TEXT_JUSTIFY_CENTER);
 
+        // Stats: Total / Rounds / Current — fixed positions
         var startY = cy - h * 18 / 100;
-        var rowH = h * 11 / 100;
+        var rowH = h * 10 / 100;
 
-        // Total time
         _drawRow(dc, leftX, rightX, startY, "Total",
             _model.formatTime(_model.sessionElapsed), Graphics.COLOR_WHITE);
-
-        // Completed rounds
         _drawRow(dc, leftX, rightX, startY + rowH, "Rounds",
             _model.rounds.size().toString(), 0xFFD700);
-
-        // Current round
         if (_model.currentRound > 0) {
             _drawRow(dc, leftX, rightX, startY + rowH * 2, "Current",
                 "R" + _model.currentRound, 0xFF8C00);
         }
 
-        // Per-round sauna durations (last 2, centered)
+        // Round history — fixed at bottom, last 2
         if (_model.rounds.size() > 0) {
             var maxShow = 2;
             var rStart = 0;
             if (_model.rounds.size() > maxShow) {
                 rStart = _model.rounds.size() - maxShow;
             }
-            var y = startY + rowH * 3 + h * 3 / 100;
+            var y = cy + h * 12 / 100;
             for (var i = rStart; i < _model.rounds.size(); i++) {
                 var rd = _model.rounds[i];
-                dc.setColor(0xFF4500, Graphics.COLOR_TRANSPARENT);
-                dc.drawText(cx, y, Graphics.FONT_XTINY,
+                dc.setColor(0xFFAA00, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, y, Graphics.FONT_SMALL,
                     "R" + (i + 1) + "  " + _model.formatTime(rd.saunaDuration) + " / " + _model.formatTime(rd.restDuration),
                     Graphics.TEXT_JUSTIFY_CENTER);
-                y += h * 7 / 100;
+                y += h * 11 / 100;
             }
         }
     }
@@ -388,7 +389,7 @@ class SaunaView extends WatchUi.View {
         dc.drawText(leftX, y, Graphics.FONT_SMALL, label, Graphics.TEXT_JUSTIFY_LEFT);
 
         dc.setColor(color, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(rightX, y, Graphics.FONT_MEDIUM, value, Graphics.TEXT_JUSTIFY_RIGHT);
+        dc.drawText(rightX, y, Graphics.FONT_SMALL, value, Graphics.TEXT_JUSTIFY_RIGHT);
     }
 
     hidden function _getStressColor(stress) {

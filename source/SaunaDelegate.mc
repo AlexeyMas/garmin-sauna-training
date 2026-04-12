@@ -51,6 +51,11 @@ class SaunaDelegate extends WatchUi.BehaviorDelegate {
         return true; // consume all back presses during session
     }
 
+    // Block touchscreen — moisture in sauna triggers phantom taps
+    function onTap(clickEvent) {
+        return true; // consume, only physical buttons allowed
+    }
+
     function onPreviousPage() {
         _model.prevPage();
         WatchUi.requestUpdate();
@@ -76,9 +81,10 @@ class SessionMenuDelegate extends WatchUi.Menu2InputDelegate {
     function onSelect(item) {
         var id = item.getId();
         if (id == :save) {
-            _model.finishSession();
-            _model.saveActivity();
-            System.exit();
+            // Double-confirm save to prevent accidental moisture taps
+            var confirm = new WatchUi.Confirmation("Save session?");
+            WatchUi.pushView(confirm, new SaveConfirmDelegate(_model), WatchUi.SLIDE_UP);
+            return;
         } else if (id == :discard) {
             _model.finishSession();
             _model.discardActivity();
@@ -95,5 +101,26 @@ class SessionMenuDelegate extends WatchUi.Menu2InputDelegate {
         // Back from menu = resume
         _model.state = STATE_ACTIVE;
         WatchUi.popView(WatchUi.SLIDE_DOWN);
+    }
+}
+
+// Confirmation before saving (prevents accidental save from moisture)
+class SaveConfirmDelegate extends WatchUi.ConfirmationDelegate {
+    hidden var _model;
+
+    function initialize(model) {
+        ConfirmationDelegate.initialize();
+        _model = model;
+    }
+
+    function onResponse(response) {
+        if (response == WatchUi.CONFIRM_YES) {
+            _model.finishSession();
+            _model.saveActivity();
+            System.exit();
+        } else {
+            WatchUi.popView(WatchUi.SLIDE_DOWN);
+        }
+        return true;
     }
 }

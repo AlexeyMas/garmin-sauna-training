@@ -1,0 +1,52 @@
+<fitContributions>
+    <!-- RECORD fields (per-second, shown as graphs) -->
+    <fitField id="0" displayInChart="true" sortOrder="0" precision="0"
+        chartTitle="@Strings.fitPhaseChart"
+        dataLabel="@Strings.fitPhaseLabel"
+        unitLabel="@Strings.fitNoUnit"
+        fillColor="#FF4500" />
+
+    <fitField id="1" displayInChart="true" sortOrder="1" precision="0"
+        chartTitle="@Strings.fitRecoveryChart"
+        dataLabel="@Strings.fitRecoveryLabel"
+        unitLabel="@Strings.fitRecoveryUnit"
+        fillColor="#00FF7F" />
+
+    <!-- LAP fields -->
+    <fitField id="10" displayInActivityLaps="true" sortOrder="2" precision="0"
+        dataLabel="@Strings.fitRoundLabel"
+        unitLabel="@Strings.fitNoUnit" />
+
+    <fitField id="11" displayInActivityLaps="true" sortOrder="3" precision="0"
+        dataLabel="@Strings.fitLapHrMaxLabel"
+        unitLabel="@Strings.fitBpmUnit" />
+
+    <fitField id="12" displayInActivityLaps="true" sortOrder="4" precision="0"
+        dataLabel="@Strings.fitLapHrAvgLabel"
+        unitLabel="@Strings.fitBpmUnit" />
+
+    <!-- SESSION fields -->
+    <fitField id="20" displayInActivitySummary="true" sortOrder="5" precision="0"
+        dataLabel="@Strings.fitRoundsLabel"
+        unitLabel="@Strings.fitNoUnit" />
+
+    <fitField id="21" displayInActivitySummary="true" sortOrder="6" precision="0"
+        dataLabel="@Strings.fitAvgRecoveryLabel"
+        unitLabel="@Strings.fitBpmUnit" />
+
+    <fitField id="22" displayInActivitySummary="true" sortOrder="7" precision="0"
+        dataLabel="@Strings.fitBBBeforeLabel"
+        unitLabel="@Strings.fitNoUnit" />
+
+    <fitField id="23" displayInActivitySummary="true" sortOrder="8" precision="0"
+        dataLabel="@Strings.fitBBAfterLabel"
+        unitLabel="@Strings.fitNoUnit" />
+
+    <fitField id="24" displayInActivitySummary="true" sortOrder="9" precision="0"
+        dataLabel="@Strings.fitStressBeforeLabel"
+        unitLabel="@Strings.fitNoUnit" />
+
+    <fitField id="25" displayInActivitySummary="true" sortOrder="10" precision="0"
+        dataLabel="@Strings.fitStressAfterLabel"
+        unitLabel="@Strings.fitNoUnit" />
+</fitContributions>
