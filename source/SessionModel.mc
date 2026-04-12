@@ -491,6 +491,36 @@ class SessionModel {
         return sessionHrSum / sessionHrCount;
     }
 
+    // Max HR across all sauna rounds (completed + current if in sauna)
+    function getBestRoundMax() {
+        var best = 0;
+        for (var i = 0; i < rounds.size(); i++) {
+            if (rounds[i].hrMax > best) { best = rounds[i].hrMax; }
+        }
+        if (phase == PHASE_SAUNA && currentRoundData != null && currentRoundData.hrMax > best) {
+            best = currentRoundData.hrMax;
+        }
+        return best;
+    }
+
+    // Round to display on HR page: current if in sauna, last completed if in rest, null if READY
+    function getDisplayRound() {
+        if (phase == PHASE_SAUNA && currentRound > 0) {
+            return currentRoundData;
+        }
+        if (rounds.size() > 0) {
+            return rounds[rounds.size() - 1];
+        }
+        return null;
+    }
+
+    function getDisplayRoundNumber() {
+        if (phase == PHASE_SAUNA && currentRound > 0) {
+            return currentRound;
+        }
+        return rounds.size();
+    }
+
     function getAvgHrRecovery() {
         if (rounds.size() == 0) { return 0; }
         var sum = 0;

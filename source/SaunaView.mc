@@ -177,21 +177,22 @@ class SaunaView extends WatchUi.View {
             dc.drawText(cx, cy - h * 14 / 100, Graphics.FONT_XTINY, "Z" + hrZone, Graphics.TEXT_JUSTIFY_CENTER);
         }
 
-        // Session stats as rows - evenly spaced
+        // Round-focused stats (more actionable than session-wide)
         var startY = cy - h * 14 / 100;
         var rowH = h * 13 / 100;
 
-        var hrMinD = _model.sessionHrMin == 999 ? 0 : _model.sessionHrMin;
-        _drawRow(dc, leftX, rightX, startY, "Sess Min", hrMinD.toString(), Graphics.COLOR_LT_GRAY);
-        _drawRow(dc, leftX, rightX, startY + rowH, "Sess Avg", _model.getSessionHrAvg().toString(), Graphics.COLOR_WHITE);
-        _drawRow(dc, leftX, rightX, startY + rowH * 2, "Sess Max", _model.sessionHrMax.toString(), 0xFF4500);
+        var dr = _model.getDisplayRound();
+        var drNum = _model.getDisplayRoundNumber();
+        var rLabel = drNum > 0 ? ("R" + drNum) : "R-";
+        var rAvg = dr != null ? dr.getHrAvg().toString() : "--";
+        var rMax = dr != null ? dr.hrMax.toString() : "--";
 
-        // Round HR max (if in sauna round)
-        if (_model.currentRound > 0 && _model.phase == PHASE_SAUNA) {
-            var rd = _model.currentRoundData;
-            _drawRow(dc, leftX, rightX, startY + rowH * 3, "R" + _model.currentRound + " Max", rd.hrMax.toString(), 0xFF8C00);
-        } else if (_model.rounds.size() > 0) {
-            // HR Recovery from last round
+        _drawRow(dc, leftX, rightX, startY, rLabel + " Avg", rAvg, Graphics.COLOR_WHITE);
+        _drawRow(dc, leftX, rightX, startY + rowH, rLabel + " Max", rMax, 0xFF8C00);
+        _drawRow(dc, leftX, rightX, startY + rowH * 2, "Best Max", _model.getBestRoundMax().toString(), 0xFF4500);
+
+        // Recovery from last completed round (when in rest with data)
+        if (_model.phase == PHASE_REST && _model.rounds.size() > 0) {
             var lastRound = _model.rounds[_model.rounds.size() - 1];
             var recovery = lastRound.getHrRecoveryScore();
             var recColor;
@@ -200,11 +201,8 @@ class SaunaView extends WatchUi.View {
             else { recColor = 0xFF0000; }
             _drawRow(dc, leftX, rightX, startY + rowH * 3, "Recovery",
                 recovery > 0 ? recovery.toString() : "--", recColor);
-        }
-
-        // Respiration
-        if (_model.currentRespRate > 0) {
-            _drawRow(dc, leftX, rightX, startY + rowH * 4, "Resp", _model.currentRespRate.toString(), 0x87CEEB);
+        } else if (_model.currentRespRate > 0) {
+            _drawRow(dc, leftX, rightX, startY + rowH * 3, "Resp", _model.currentRespRate.toString(), 0x87CEEB);
         }
     }
 
