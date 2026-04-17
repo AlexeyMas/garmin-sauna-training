@@ -51,10 +51,12 @@ class SaunaDelegate extends WatchUi.BehaviorDelegate {
         return true; // consume all back presses during session
     }
 
-    // Block touchscreen — moisture in sauna triggers phantom taps
-    function onTap(clickEvent) {
-        return true; // consume, only physical buttons allowed
-    }
+    // Block all touch input — moisture/steam triggers phantom events
+    function onTap(clickEvent) { return true; }
+    function onSwipe(swipeEvent) { return true; }
+    function onHold(clickEvent) { return true; }
+    function onRelease(clickEvent) { return true; }
+    function onDrag(dragEvent) { return true; }
 
     function onPreviousPage() {
         _model.prevPage();
